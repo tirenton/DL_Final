@@ -1,4 +1,5 @@
-# GRU-based Model for Bitcoin Price Forecasting  
+# GRU-based Model for Bitcoin Price Forecasting Using Multi-Asset Macroeconomic Data and Volatility Regimes
+
 **แบบจำลอง GRU สำหรับคาดการณ์ราคา Bitcoin โดยใช้ข้อมูลมหภาคหลายสินทรัพย์และ Regime ของความผันผวน**
 
 ---
