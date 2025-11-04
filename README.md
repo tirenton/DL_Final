@@ -38,9 +38,9 @@
 | สัญลักษณ์ | รายละเอียด |
 |------------|-------------|
 | BTC-USD | ราคา Bitcoin |
-| ^GSPC | S&P500 Index |
+| GSPC | S&P500 Index |
 | GC=F | Gold Futures |
-| ^IXIC | NASDAQ Composite |
+| IXIC | NASDAQ Composite |
 
 ช่วงเวลา: ตั้งแต่ **2018-01-01** จนถึงปัจจุบัน  
 
