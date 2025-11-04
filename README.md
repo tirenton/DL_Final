@@ -166,4 +166,8 @@ GRU สามารถจับ **pattern ระยะยาวของรา�
 ```text
 .
 ├── README.md              # This file
-└── Dl's_Final.ipynb       # EDA & quick experiments
+├── Final_project.pdf      # Full information on this pdf
+└── Dl's_Final.ipynb       # quick experiments
+
+```
+This README.md based on Final_project.pdf
