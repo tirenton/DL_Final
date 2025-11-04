@@ -1,262 +1,167 @@
 # GRU-based Model for Bitcoin Price Forecasting Using Multi-Asset Macroeconomic Data and Volatility Regimes
 
+---
 **แบบจำลอง GRU สำหรับคาดการณ์ราคา Bitcoin โดยใช้ข้อมูลมหภาคหลายสินทรัพย์และ Regime ของความผันผวน**
 
 ---
 
-## 🎯 Project Overview
+## 📘 ภาพรวมโครงการ (Project Overview)
 
-This project builds a **Gated Recurrent Unit (GRU)**–based deep learning model to forecast the **direction of Bitcoin (BTC)** over the next **30 days**, using:
+โครงการนี้พัฒนาโมเดล **Gated Recurrent Unit (GRU)** เพื่อทำนายแนวโน้มของราคา **Bitcoin (BTC)** ล่วงหน้า 30 วัน  
+โดยใช้ข้อมูลจากหลายสินทรัพย์และตัวชี้วัดทางเทคนิค เช่น
 
-- Multi-asset financial time series
-- Technical indicators
-- Volatility regimes (low / mid / high)
+- ข้อมูลราคาจากหลายตลาด (BTC, S&P500, Gold, NASDAQ)  
+- ตัวชี้วัดทางเทคนิค (RSI, MA, MACD, Momentum)  
+- Regime ความผันผวน (Volatility Regime)
 
-The goal is not to predict exact prices, but to answer a practical trading question:
+เป้าหมายคือไม่ใช่การทำนายราคาที่แน่นอน แต่เป็นการตอบคำถามเชิงทิศทางว่า
 
-> “In the near future, is the price more likely to go **up** or **not up** from here?”
-
-:contentReference[oaicite:0]{index=0}
-
----
-
-## 📂 Course & Context
-
-- **Course:** 204466 การเรียนรู้เชิงลึก (Deep Learning)  
-- **Institution:** Kasetsart University  
-- **Project Type:** Final project – end-to-end forecasting system  
-- **Framework:** Python + PyTorch
+> “ภายใน 30 วันข้างหน้า ราคา Bitcoin จะ **ขึ้น** หรือ **ไม่ขึ้น**?”
 
 ---
 
-## 📊 Data & Features
+## 📚 ข้อมูลโครงการ (Project Info)
 
-### Data Source
-
-All market data are downloaded via **`yfinance`** (Yahoo Finance):
-
-- **BTC-USD** – Bitcoin  
-- **^GSPC** – S&P 500 Index  
-- **GC=F** – Gold Futures  
-- **^IXIC** – NASDAQ Composite  
-
-Time range: from **2018-01-01** up to the data download date.
-
-### Prediction Target
-
-Binary classification label:
-
-- `y = 1` if **BTC price in 30 days** is higher than today  
-- `y = 0` otherwise  
-
-So each sample asks whether BTC will be **higher or not** after a 30-day horizon.
-
-### Engineered Features (per day)
-
-For each asset and for BTC specifically:
-
-- **Log returns**  
-- **Rolling volatility** (e.g. 14-day std of returns)  
-- **RSI(14)**  
-- **Moving averages**: MA7, MA21  
-- **Momentum**: cumulative return over 10 days  
-- **MACD & signal line**
-
-Cross-asset relationships:
-
-- **Rolling correlations** between BTC and:
-  - S&P 500
-  - Gold
-  - NASDAQ
-
-Volatility regimes for BTC:
-
-- Compute **30-day realized volatility**
-- Split into **3 regimes** via quantiles:
-  - Low / Mid / High  
-- Encode as **one-hot** features (regime-aware model)
-
-All features are **standardized** with `StandardScaler`, fit only on the **training set** to avoid data leakage.
+- **รายวิชา:** 204466 การเรียนรู้เชิงลึก (Deep Learning)  
+- **สถาบัน:** มหาวิทยาลัยเกษตรศาสตร์  
+- **ประเภท:** โครงงานปลายภาค  
+- **Framework:** Python + PyTorch  
 
 ---
 
-## 🧠 Model Architecture
+## 📈 ข้อมูลและคุณลักษณะ (Data & Features)
 
-The model is a **multi-layer GRU** for sequence modeling.
+### แหล่งข้อมูล (Data Source)
 
-### Input Shape
+โหลดข้อมูลผ่าน **`yfinance`** จาก Yahoo Finance:
 
-- Sequence length: **128 days**
-- Each time step: feature vector size **F** (number of engineered features)
-- Batch input: `[batch_size, 128, F]`
+| สัญลักษณ์ | รายละเอียด |
+|------------|-------------|
+| BTC-USD | ราคา Bitcoin |
+| ^GSPC | S&P500 Index |
+| GC=F | Gold Futures |
+| ^IXIC | NASDAQ Composite |
 
-### GRU Stack
-
-- **Type:** `nn.GRU`
-- **Hidden size (H):** `256`
-- **Layers:** `3`
-- **Dropout:** `0.5` (between GRU layers)
-
-At each time step, the GRU maintains a **hidden state** of size 256. Internally it uses:
-
-- **Update gate `z`** – controls how much new information overrides old memory  
-- **Reset gate `r`** – controls how much of the past to forget  
-- **Candidate hidden state** – proposed new memory  
-
-Activation functions:
-
-- **Sigmoid** for gates (`z`, `r`)  
-- **Tanh** for candidate hidden state  
-
-The **same GRU parameters** are reused across all time steps in a layer.
-
-### Output Layer
-
-1. Take the **last hidden state** of the top GRU layer:  
-   - Shape: `[batch_size, 256]`
-2. Apply **Dropout(0.5)**.
-3. Pass through a **Linear layer**:
-   - `Linear(256 → 1)` → single **logit** per sample
-
-At evaluation time, apply **sigmoid** to the logit to get:
-
-- `p = P(price_up_in_30_days | features)`
+ช่วงเวลา: ตั้งแต่ **2018-01-01** จนถึงปัจจุบัน  
 
 ---
 
-## 🏋️‍♀️ Training Setup
+### เป้าหมายการทำนาย (Prediction Target)
 
-- **Loss:** `BCEWithLogitsLoss`
-  - Combines sigmoid + binary cross-entropy in a numerically stable way
-- **Optimizer:** `AdamW`
-- **Learning rate schedule:** `CosineAnnealingLR`
-- **Batch size:** `64`
-- **Max epochs:** `200`
-- **Early stopping:**  
-  - Monitors **validation loss**  
-  - Stops if no improvement for **10 epochs**  
-  - Restores the **best** model weights
+Label ทวิภาค (Binary):
 
-### Time-based Split
-
-To respect time ordering and avoid look-ahead bias:
-
-- Use a **chronological split** (e.g. ~80% train, ~20% validation)
-- No shuffling across time when building sequences
-
-### Sliding Window Construction
-
-For each index `i`:
-
-- Input sequence: days `[i, i+1, ..., i+127]`
-- Label: day `i+128+H-1` (where H = 30 days ahead)
-
-This creates supervised pairs `(sequence_128_days, direction_in_30_days)`.
+- `1` → ถ้าราคา BTC ในอีก 30 วันข้างหน้าสูงกว่าวันนี้  
+- `0` → ถ้าไม่สูงขึ้น  
 
 ---
 
-## ✅ Evaluation
+### คุณลักษณะ (Engineered Features)
 
-### Metrics
+1. **Log Return**  
+2. **Rolling Volatility (14 วัน)**  
+3. **RSI(14)**  
+4. **Moving Average (MA7, MA21)**  
+5. **Momentum (10 วัน)**  
+6. **MACD & Signal Line**  
+7. **Cross-Asset Correlation** ระหว่าง BTC กับสินทรัพย์อื่น  
+8. **Volatility Regime (Low / Mid / High)** — One-hot encoding  
 
-Used on the **validation set**:
-
-- **Loss** – `BCEWithLogitsLoss`  
-- **AUC (ROC-AUC)** – threshold-independent ranking ability  
-- **F1 score** – harmonic mean of precision & recall (important for imbalanced labels)  
-- **Accuracy** – overall correctness  
-
-Because class balance is not exactly 50/50, **AUC + F1** are especially informative.
-
-### Threshold Tuning
-
-1. The model outputs probabilities `p`.
-2. Default threshold = `0.5`.
-3. Scan multiple thresholds (e.g. 0.2 → 0.8).
-4. Select the threshold that **maximizes F1** on the validation set.
-5. Report:
-   - Best threshold
-   - F1, Accuracy at this threshold
-   - Confusion matrix at this threshold
-
-### Example Best Model Result (30-day horizon)
-
-At the chosen best threshold:
-
-- **Confusion Matrix**  
-  - TN = 106  
-  - FP = 30  
-  - FN = 17  
-  - TP = 52  
-- **Precision** ≈ 0.634  
-- **Recall** ≈ 0.754  
-- **F1** ≈ 0.689  
-- **Accuracy** ≈ 0.771  
-- **AUC** ≈ 0.800  
-
-Interpretation:
-
-- Good **discrimination** between up vs not-up regimes (AUC 0.80).  
-- Reasonable balance between **catching true up-moves** (recall) and **avoiding false alarms** (precision).  
-- Works **better on 30-day horizon** than very short-term prediction, where noise is higher.
+ข้อมูลทั้งหมดถูก **Normalize** ด้วย `StandardScaler` โดยใช้เฉพาะข้อมูลฝึก (train) เพื่อป้องกัน data leakage  
 
 ---
 
-## 🔍 Why Deep Learning (GRU)?
+## 🧠 สถาปัตยกรรมโมเดล (Model Architecture)
 
-Compared to:
+โมเดลหลักคือ **GRU (Gated Recurrent Unit)** จำนวน 3 ชั้น
 
-- **Rule-based technical strategies** – simple but rigid; hard to adapt dynamically.  
-- **Linear models / ARIMA** – assume stationarity & linearity; often unrealistic in markets.  
-- **Tree-based models (e.g. XGBoost)** – strong on tabular data but do not natively handle **sequence dynamics**.
+### ขนาดข้อมูลนำเข้า (Input Shape)
 
-GRU advantages:
+- ความยาว sequence = **128 วัน**  
+- จำนวน features ต่อวัน = **F (≈20)**  
+- รูปร่างอินพุต: `[batch_size, 128, F]`
 
-- Learns complex **non-linear temporal patterns** end-to-end.  
-- Handles **multi-asset sequences** naturally.  
-- Can incorporate **regime features** and **cross-asset correlations** directly.
+### โครงสร้างโมเดล (Layers)
 
-Trade-offs:
+| Layer | รายละเอียด |
+|--------|-------------|
+| GRU (3 layers) | Hidden size = 256, Dropout = 0.5 |
+| Fully Connected | Linear(256 → 1) |
+| Activation | Sigmoid (ทำนายความน่าจะเป็นของการ “ขึ้น”) |
 
-- Needs more data and regularization to avoid overfitting.  
-- Harder to interpret than simple statistical models.  
-- Requires more compute than classic models, but lighter than LSTM/Transformer in this setting.
-
----
-
-## 📚 Related Work & Inspirations (High-level)
-
-- Technical indicators: MA, MACD, RSI, momentum (e.g. Murphy – *Technical Analysis of the Financial Markets*).  
-- Time-series momentum and returns predictability (e.g. Moskowitz et al.).  
-- RNN family for financial time series: LSTM & GRU based models.  
-- Volatility regimes & regime-switching models (e.g. Hamilton; Andersen et al. on realized volatility).  
-- Changing cross-asset correlations under stress (e.g. Longin & Solnik).  
-- Training practice: AdamW, cosine annealing, ROC/PR analysis, threshold tuning for binary classification.
+### การทำงานของ GRU ภายใน
+- **Update gate (z)** → ควบคุมการเก็บข้อมูลใหม่  
+- **Reset gate (r)** → ควบคุมการลืมข้อมูลเก่า  
+- **Tanh** → แปลงค่า memory candidate  
 
 ---
 
-## 👥 Authors & Contribution
+## ⚙️ การฝึกโมเดล (Training Setup)
 
-> Fill in percentages as appropriate for the final report.
+| รายการ | ค่าที่ใช้ |
+|--------|-----------|
+| Loss Function | `BCEWithLogitsLoss` |
+| Optimizer | `AdamW` |
+| Scheduler | `CosineAnnealingLR` |
+| Batch Size | 64 |
+| Epochs | 200 |
+| Early Stopping | Patience = 10 |
 
-| Task                                      | อภิภู ชูเจริญประกิจ (6510503891) | อิทธิเดช นามเหลา (6510503905) |
-| ----------------------------------------- | ---------------------------------- | -------------------------------- |
-| Idea & problem design                     |                                    |                                  |
-| Data collection & pipeline                |                                    |                                  |
-| Feature engineering & regime design       |                                    |                                  |
-| Model implementation (GRU) & training     |                                    |                                  |
-| Evaluation & threshold analysis           |                                    |                                  |
-| Visualization & result interpretation     |                                    |                                  |
-| Report writing & documentation            |                                    |                                  |
+**การแบ่งชุดข้อมูล**  
+- Train / Validation แบ่งตามเวลา (ไม่สุ่ม)  
+- ใช้ Sliding Window ขนาด 128 วัน เพื่อสร้างชุดข้อมูล  
 
 ---
 
-## 📝 How to Use This Repo (Suggested Structure)
+## 📊 การประเมินผล (Evaluation)
 
-> Adjust to match your actual file layout.
+| Metric | ความหมาย |
+|---------|------------|
+| AUC | ความสามารถแยกคลาสโดยไม่ขึ้นกับ threshold |
+| F1 Score | ค่ากลางระหว่าง precision และ recall |
+| Accuracy | สัดส่วนทำนายถูกทั้งหมด |
+
+**ตัวอย่างผลลัพธ์ (Horizon 30 วัน):**
+
+| Metric | ค่า |
+|--------|----|
+| AUC | 0.800 |
+| F1 | 0.689 |
+| Accuracy | 0.771 |
+| Confusion Matrix | [[106, 30], [17, 52]] |
+
+แปลว่าโมเดลมีความสามารถแยกทิศทางได้ดี (AUC สูง) และรักษาความสมดุลระหว่างการจับสัญญาณขึ้นและลด false positive ได้ดี  
+
+---
+
+## 🔍 ทำไมเลือก GRU?
+
+| โมเดล | จุดเด่น |
+|--------|-----------|
+| GRU | จดจำลำดับเวลาได้ดี, เบากว่า LSTM, train เร็ว |
+| CNN / FFN | ไม่เหมาะกับลำดับเวลา |
+| XGBoost | เหมาะกับตาราง, แต่ไม่เข้าใจ temporal pattern |
+
+GRU สามารถจับ **pattern ระยะยาวของราคาย้อนหลัง** และ **cross-asset interaction** ได้ดีกว่าโมเดลเชิงสถิติ  
+
+---
+
+## 👥 ผู้จัดทำ (Authors)
+
+| รายการงาน | อภิภู ชูเจริญประกิจ (6510503891) | อิทธิเดช นามเหลา (6510503905) |
+|------------|----------------------------------|--------------------------------|
+| การออกแบบแนวคิด | ✅ | ✅ |
+| การรวบรวมข้อมูล | ✅ | ✅ |
+| การสร้างคุณลักษณะ (Feature Engineering) | ✅ | ✅ |
+| การสร้างโมเดล GRU | ✅ | ✅ |
+| การเทรนและปรับ Threshold | ✅ | ✅ |
+| การประเมินและวิเคราะห์ผล | ✅ | ✅ |
+| การจัดทำรายงาน | ✅ | ✅ |
+
+---
+
+## 📂 โครงสร้างไฟล์ (Project Structure)
 
 ```text
 .
 ├── README.md              # This file
 └── Dl's_Final.ipynb       # EDA & quick experiments
-
