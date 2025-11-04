@@ -258,13 +258,5 @@ Trade-offs:
 ```text
 .
 ├── README.md              # This file
-├── data/                  # (Optional) Cached CSV/Parquet data
-├── notebooks/
-│   └── exploration.ipynb  # EDA & quick experiments
-├── src/
-│   ├── dataset.py         # Window construction, scaling
-│   ├── features.py        # Feature engineering (log-ret, RSI, MACD, regimes, etc.)
-│   ├── model.py           # GRUModel definition
-│   ├── train.py           # Training loop & early stopping
-│   └── eval.py            # Metrics, threshold search, plots
-└── requirements.txt       # Dependencies (PyTorch, yfinance, pandas, numpy, etc.)
+└── Dl's_Final.ipynb       # EDA & quick experiments
+
